@@ -1,8 +1,28 @@
 use self::Contains::{ DoesContain, DoesNotContain };
+use self::XPointRelation::{ RightOfPoint, LeftOfPoint, OnPointX };
+use self::YPointRelation::{ AbovePoint, BelowPoint, OnPointY };
+use self::PointRelation::{ PointsEqual, PointsNotEqual };
 
 pub struct Point {
     pub x: i32,
     pub y: i32
+}
+
+pub enum XPointRelation {
+    RightOfPoint,
+    LeftOfPoint,
+    OnPointX
+}
+
+pub enum YPointRelation {
+    AbovePoint,
+    BelowPoint,
+    OnPointY
+}
+
+pub enum PointRelation {
+    PointsEqual,
+    PointsNotEqual
 }
 
 impl Point {
@@ -17,6 +37,34 @@ impl Point {
     pub fn offset(&self, offset: Point) -> Point {
         Point { x: self.x + offset.x, y: self.y + offset.y }
     }
+
+    pub fn compare_x(&self, point: Point) -> XPointRelation {
+        if self.x > point.x {
+            RightOfPoint
+        } else if self.x < point.x {
+            LeftOfPoint
+        } else {
+            OnPointX
+        }
+    }
+
+    pub fn compare_y(&self, point: Point) -> YPointRelation {
+        if self.y > point.y {
+            BelowPoint
+        } else if self.y < point.y {
+            AbovePoint
+        } else {
+            OnPointY
+        }
+    }
+
+    pub fn compare(&self, point: Point) -> PointRelation {
+        if self.x == point.x && self.y == point.y {
+            PointsEqual
+        } else {
+            PointsNotEqual
+        }
+    }
 }
 
 pub enum Contains {
@@ -30,6 +78,13 @@ pub struct Bound {
 }
 
 impl Bound {
+    pub fn new(min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Bound {
+        Bound {
+            min: Point { x: min_x, y: min_y },
+            max: Point { x: max_x, y: max_y }
+        }
+    }
+
     pub fn contains(&self, point: Point) -> Contains {
         if
             point.x >= self.min.x &&
