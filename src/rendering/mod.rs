@@ -9,6 +9,9 @@ pub trait WindowComponent {
     fn get_bounds(&self) -> Bound;
     fn get_bg_color(&self) -> Color;
     fn get_console(&mut self) -> &mut Console;
+    fn get_mut_messages(&mut self) -> &mut Vec<Box<String>>;
+    fn get_messages(&self) -> Vec<Box<String>>;
+    fn get_max_messages(&self) -> uint;
 
     fn clear(&mut self) {
         let color = self.get_bg_color();
@@ -21,106 +24,65 @@ pub trait WindowComponent {
         let mut console = self.get_console();
         console.print_ex(x, y, BackgroundFlag::Set, alignment, text);
     }
+
+    fn buffer_message(&mut self, text: &str) {
+        let max  = self.get_max_messages();
+        let message = String::from_str(text);
+        let messages = self.get_mut_messages();
+
+        messages.insert(0, box message);
+        messages.truncate(max);
+    }
+
+    fn flush_buffer(&mut self) {
+        let max = self.get_max_messages();
+        let messages = self.get_mut_messages();
+
+        for _ in range(0, max) {
+            messages.insert(0, box String::from_str(""));
+        }
+        messages.truncate(max);
+    }
 }
 
-pub struct TcodStatsWindowComponent {
-    pub console: Console,
-    pub background_color: Color,
-    bounds: Bound
-}
-
+window_component_def!(TcodStatsWindowComponent)
 impl WindowComponent for TcodStatsWindowComponent {
-    fn new(bounds: Bound) -> TcodStatsWindowComponent {
-        let height = bounds.max.y - bounds.min.y + 1;
-        let width = bounds.max.x - bounds.min.x + 1;
-        let console = Console::new(width as int, height as int);
-
-        let red = Color::new(255u8, 0u8, 0u8);
-        TcodStatsWindowComponent {
-            console: console,
-            background_color: red,
-            bounds: bounds
-        }
-    }
-
-    fn get_console(&mut self) -> &mut Console { &mut self.console }
-    fn get_bounds(&self) -> Bound { self.bounds }
-    fn get_bg_color(&self) -> Color { self.background_color }
+    window_component_init!(
+        TcodStatsWindowComponent,
+        Color::new(0u8, 0u8, 0u8),
+        10u
+    )
+    window_component_getters!()
 }
 
-pub struct TcodInputWindowComponent {
-    pub console: Console,
-    pub background_color: Color,
-    bounds: Bound
-}
-
+window_component_def!(TcodInputWindowComponent)
 impl WindowComponent for TcodInputWindowComponent {
-    fn new(bounds: Bound) -> TcodInputWindowComponent {
-        let height = bounds.max.y - bounds.min.y + 1;
-        let width = bounds.max.x - bounds.min.x + 1;
-        let console = Console::new(width as int, height as int);
-
-        let green = Color::new(0u8, 255u8, 0u8);
-        TcodInputWindowComponent {
-            console: console,
-            background_color: green,
-            bounds: bounds
-        }
-    }
-
-    fn get_console(&mut self) -> &mut Console { &mut self.console }
-    fn get_bounds(&self) -> Bound { self.bounds }
-    fn get_bg_color(&self) -> Color { self.background_color }
+    window_component_init!(
+        TcodInputWindowComponent,
+        Color::new(0u8, 0u8, 0u8),
+        2u
+    )
+    window_component_getters!()
 }
 
-pub struct TcodMessagesWindowComponent {
-    pub console: Console,
-    pub background_color: Color,
-    bounds: Bound
-}
-
-impl WindowComponent for TcodMessagesWindowComponent {
-    fn new(bounds: Bound) -> TcodMessagesWindowComponent {
-        let height = bounds.max.y - bounds.min.y + 1;
-        let width = bounds.max.x - bounds.min.x + 1;
-        let console = Console::new(width as int, height as int);
-
-        let blue = Color::new(0u8, 0u8, 255u8);
-        TcodMessagesWindowComponent {
-            console: console,
-            background_color: blue,
-            bounds: bounds
-        }
-    }
-
-    fn get_console(&mut self) -> &mut Console { &mut self.console }
-    fn get_bounds(&self) -> Bound { self.bounds }
-    fn get_bg_color(&self) -> Color { self.background_color }
-}
-
-pub struct TcodMapWindowComponent {
-    pub console: Console,
-    pub background_color: Color,
-    bounds: Bound
-}
-
+window_component_def!(TcodMapWindowComponent)
 impl WindowComponent for TcodMapWindowComponent {
-    fn new(bounds: Bound) -> TcodMapWindowComponent {
-        let height = bounds.max.y - bounds.min.y + 1;
-        let width = bounds.max.x - bounds.min.x + 1;
-        let console = Console::new(width as int, height as int);
+    window_component_init!(
+        TcodMapWindowComponent,
+        Color::new(0u8, 0u8, 0u8),
+        10u
+    )
+    window_component_getters!()
+}
 
-        let black = Color::new(0u8, 0u8, 0u8);
-        TcodMapWindowComponent {
-            console: console,
-            background_color: black,
-            bounds: bounds
-        }
-    }
-
-    fn get_console(&mut self) -> &mut Console { &mut self.console }
-    fn get_bounds(&self) -> Bound { self.bounds }
-    fn get_bg_color(&self) -> Color { self.background_color }
+window_component_def!(TcodMessagesWindowComponent)
+impl WindowComponent for TcodMessagesWindowComponent {
+    window_component_init!(
+        TcodMessagesWindowComponent,
+        Color::new(0u8, 0u8, 0u8),
+        10u
+    )
+    window_component_getters!()
 }
 
 pub struct TcodRenderingComponent {
@@ -165,9 +127,15 @@ impl RenderingComponent for TcodRenderingComponent {
 
     fn attach_window(&mut self, window: &mut Box<WindowComponent>) {
         window.clear();
-        window.print(0, 0, tcod::Left, "Sup foo!");
-        window.print(0, 1, tcod::Left, "Nothin fool!");
+        let mut line = 0i;
         let bounds  = window.get_bounds();
+        let messages = window.get_messages();
+
+        for message in messages.iter() {
+            window.print(0, line, tcod::TextAlignment::Left, message.as_slice());
+            line = line + 1;
+        }
+
         let console = window.get_console();
 
         Console::blit(&*console, 0, 0, (bounds.max.x as int) + 1,

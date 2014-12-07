@@ -2,7 +2,8 @@ extern crate tcod;
 use std;
 use std::rand::Rng;
 
-use self::tcod::{KeyCode, Special};
+use self::tcod::KeyCode;
+use self::tcod::Key::Special;
 use util::{Bound, Point, XPointRelation, YPointRelation, PointRelation };
 use util::Contains::{DoesContain, DoesNotContain};
 use game::Game;
