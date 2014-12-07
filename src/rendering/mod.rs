@@ -1,7 +1,8 @@
 extern crate tcod;
-use self::tcod::{Console, BackgroundFlag, KeyState, TextAlignment, Color};
+use self::tcod::{Console, KeyState, BackgroundFlag, TextAlignment, Color};
 
 use util::{Point, Bound};
+use input::{ InputComponent, TcodInputComponent, KeyboardInput};
 
 pub trait WindowComponent {
     fn new(Bound) -> Self;
@@ -85,8 +86,9 @@ impl WindowComponent for TcodMessagesWindowComponent {
     window_component_getters!()
 }
 
-pub struct TcodRenderingComponent {
-    pub console: Console
+pub struct TcodRenderingComponent<'a> {
+    pub console: Console,
+    pub input_component: Box<InputComponent<KeyState> + 'a>
 }
 
 pub trait RenderingComponent {
@@ -94,19 +96,23 @@ pub trait RenderingComponent {
     fn before_render_new_frame(&mut self);
     fn render_object(&mut self, Point, char);
     fn after_render_new_frame(&mut self);
-    fn wait_for_keypress(&mut self) -> KeyState;
+    fn wait_for_keypress(&mut self) -> KeyboardInput;
     fn attach_window(&mut self, &mut Box<WindowComponent>);
 }
 
-impl RenderingComponent for TcodRenderingComponent {
-    fn new(bound: Bound) -> TcodRenderingComponent {
-        let con = Console::init_root(
+impl<'a> RenderingComponent for TcodRenderingComponent<'a> {
+    fn new(bound: Bound) -> TcodRenderingComponent<'a> {
+        let console = Console::init_root(
             (bound.max.x + 1) as int,
             (bound.max.y + 1) as int,
             "libtcod Rust tutorial",
             false
         );
-        TcodRenderingComponent { console: con }
+        let input_component: Box<TcodInputComponent> = box InputComponent::new();
+        TcodRenderingComponent {
+            console: console,
+            input_component: input_component
+        }
     }
 
     fn before_render_new_frame(&mut self) {
@@ -121,8 +127,9 @@ impl RenderingComponent for TcodRenderingComponent {
         Console::flush();
     }
 
-    fn wait_for_keypress(&mut self) -> KeyState {
-        Console::wait_for_keypress(true)
+    fn wait_for_keypress(&mut self) -> KeyboardInput {
+        let key_state = Console::wait_for_keypress(true);
+        self.input_component.translate_input(key_state)
     }
 
     fn attach_window(&mut self, window: &mut Box<WindowComponent>) {

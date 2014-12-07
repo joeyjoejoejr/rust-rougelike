@@ -1,7 +1,3 @@
-extern crate tcod;
-use self::tcod::{ KeyState, KeyCode };
-use self::tcod::Key::{ Printable, Special };
-
 use util::{ Point, Bound };
 use rendering::{
     WindowComponent,
@@ -12,8 +8,10 @@ use rendering::{
     TcodMapWindowComponent
 };
 use actor::Actor;
+use input::{ KeyboardInput, KeyCode };
+use input::Key::{ SpecialKey, Printable };
 
-static mut LAST_KEYPRESS: Option<KeyState> = None;
+static mut LAST_KEYPRESS: Option<KeyboardInput> = None;
 static mut CHAR_LOCATION: Point = Point { x: 40, y: 25 };
 
 pub struct Windows<'a> {
@@ -72,11 +70,11 @@ impl GameState for MovementGameState {
         MovementGameState
     }
 
-    fn update(&mut self, npcs: &mut Vec<Box<Actor>>, character: &mut Actor, _: &mut Windows) {
-        character.update();
+    fn update(&mut self, npcs: &mut Vec<Box<Actor>>, character: &mut Actor, windows: &mut Windows) {
+        character.update(windows);
         Game::set_character_location(character.position);
         for npc in npcs.iter_mut() {
-            npc.update();
+            npc.update(windows);
         }
     }
 
@@ -113,19 +111,19 @@ impl GameState for AttackInputGameState {
             Some(ks) => {
                 let mut msg = "You attack ".to_string();
                 match ks.key {
-                    Special(KeyCode::Up) => {
+                    SpecialKey(KeyCode::Up) => {
                         msg.push_str("up");
                         self.should_update_state = true;
                     },
-                    Special(KeyCode::Down) => {
+                    SpecialKey(KeyCode::Down) => {
                         msg.push_str("down");
                         self.should_update_state = true;
                     },
-                    Special(KeyCode::Left) => {
+                    SpecialKey(KeyCode::Left) => {
                         msg.push_str("left");
                         self.should_update_state = true;
                     },
-                    Special(KeyCode::Right) => {
+                    SpecialKey(KeyCode::Right) => {
                         msg.push_str("right");
                         self.should_update_state = true;
                     },
@@ -133,7 +131,7 @@ impl GameState for AttackInputGameState {
                 }
 
                 if self.should_update_state {
-                    msg.push_str("with your ");
+                    msg.push_str(" with your ");
                     msg.push_str(self.weapon.as_slice());
                     msg.push_str("!");
                     windows.messages.buffer_message(msg.as_slice());
@@ -195,34 +193,54 @@ impl<'a> Game<'a> {
     }
 
     pub fn render(&mut self, npcs: &mut Vec<Box<Actor>>, c: &Actor) {
-        self.game_state.render(self.rendering_component, npcs, c, &mut self.windows);
+        self.game_state.render(&mut self.rendering_component, npcs, c, &mut self.windows);
     }
 
     fn update_state(&mut self) {
         match Game::get_last_keypress() {
             Some(ks) => {
+                match ks.key {
+                    Printable('/') => {
+                        let mut is: Box<AttackInputGameState> = box GameState::new();
+                        is.weapon = "Heroic Sword".to_string();
+                        self.game_state = is as Box<GameState>;
+                    },
+                    Printable('^') => {
+                        let mut is: Box<AttackInputGameState> = box GameState::new();
+                        is.weapon = "Boomerang".to_string();
+                        self.game_state = is as Box<GameState>;
+                    },
+                    Printable('*') => {
+                        let mut is: Box<AttackInputGameState> = box GameState::new();
+                        is.weapon = "Deadly Bomb".to_string();
+                        self.game_state = is as Box<GameState>;
+                    },
+                    Printable('%') => {
+                        let mut is: Box<AttackInputGameState> = box GameState::new();
+                        is.weapon = "Delicious Lettuce".to_string();
+                        self.game_state = is as Box<GameState>;
+                    },
+                    _ => {
+                        let ms: Box<MovementGameState> = box GameState::new();
+                        self.game_state = ms as Box<GameState>;
+                    }
+                }
             },
             _ => {}
         }
     }
 
-    pub fn wait_for_keypress(&mut self) -> KeyState {
-        let ks = self.rendering_component.wait_for_keypress();
-        match ks.key {
-            Printable('/') => self.windows.input.buffer_message(
-                "Which direction would you like to attack with your heroic sword? [Press an arrow key]"
-            ),
-            _ => self.windows.input.flush_buffer()
-        }
-        Game::set_last_keypress(ks);
-        ks
+    pub fn wait_for_keypress(&mut self) -> KeyboardInput {
+        let key_state = self.rendering_component.wait_for_keypress();
+        Game::set_last_keypress(key_state);
+        key_state
     }
 
-    pub fn get_last_keypress() -> Option<KeyState> {
+    pub fn get_last_keypress() -> Option<KeyboardInput> {
         unsafe { LAST_KEYPRESS }
     }
 
-    pub fn set_last_keypress(ks: KeyState) {
+    pub fn set_last_keypress(ks: KeyboardInput) {
         unsafe { LAST_KEYPRESS = Some(ks);}
     }
 

@@ -1,13 +1,16 @@
 extern crate tcod;
 use std;
 use std::rand::Rng;
-
-use self::tcod::KeyCode;
-use self::tcod::Key::Special;
 use util::{Bound, Point, XPointRelation, YPointRelation, PointRelation };
 use util::Contains::{DoesContain, DoesNotContain};
-use game::Game;
-use traits::MovementComponent;
+use game::{ Game, Windows };
+use input::{ KeyCode };
+use input::Key::SpecialKey;
+
+pub trait MovementComponent {
+    fn new(Bound) -> Self;
+    fn update(&self, Point, &mut Windows) -> Point;
+}
 
 pub struct RandomMovementComponent {
     window_bounds: Bound
@@ -18,7 +21,7 @@ impl MovementComponent for RandomMovementComponent {
         RandomMovementComponent { window_bounds: window_bounds }
     }
 
-    fn update(&self, point: Point) -> Point {
+    fn update(&self, point: Point, _: &mut Windows) -> Point {
         let mut offset = Point { x: point.x, y: point.y };
 
         let offset_x: i32 = std::rand::task_rng().gen_range(0, 3) - 1;
@@ -37,30 +40,30 @@ impl MovementComponent for RandomMovementComponent {
     }
 }
 
-pub struct TcodUserMovementComponent {
+pub struct UserMovementComponent {
     window_bounds: Bound
 }
 
-impl MovementComponent for TcodUserMovementComponent {
-    fn new(window_bounds: Bound) -> TcodUserMovementComponent {
-        TcodUserMovementComponent { window_bounds: window_bounds }
+impl MovementComponent for UserMovementComponent {
+    fn new(window_bounds: Bound) -> UserMovementComponent {
+        UserMovementComponent { window_bounds: window_bounds }
     }
 
-    fn update(&self, point: Point) -> Point {
+    fn update(&self, point: Point, windows: &mut Windows) -> Point {
         let mut offset = Point { x: point.x, y: point.y };
         offset = match Game::get_last_keypress() {
             Some(keypress) => {
                 match keypress.key {
-                    Special(KeyCode::Up) => {
+                    SpecialKey(KeyCode::Up) => {
                         offset.offset_y(-1)
                     },
-                    Special(KeyCode::Down) => {
+                    SpecialKey(KeyCode::Down) => {
                         offset.offset_y(1)
                     },
-                    Special(KeyCode::Left) => {
+                    SpecialKey(KeyCode::Left) => {
                         offset.offset_x(-1)
                     },
-                    Special(KeyCode::Right) => {
+                    SpecialKey(KeyCode::Right) => {
                         offset.offset_x(1)
                     },
                     _ => { offset }
@@ -71,7 +74,10 @@ impl MovementComponent for TcodUserMovementComponent {
 
         match self.window_bounds.contains(offset) {
             DoesContain => { offset }
-            DoesNotContain => { point }
+            DoesNotContain => {
+                windows.messages.buffer_message("You can't move that way!");
+                point
+            }
         }
     }
 }
@@ -85,7 +91,7 @@ impl MovementComponent for AgroMovementComponent {
         AgroMovementComponent { window_bounds: window_bounds }
     }
 
-    fn update(&self, point: Point) -> Point {
+    fn update(&self, point: Point, _: &mut Windows) -> Point {
         let char_point = Game::get_character_location();
         let mut offset = Point { x: 0, y: 0 };
 

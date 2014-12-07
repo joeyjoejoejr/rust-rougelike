@@ -1,8 +1,7 @@
-use util::{ Point, Bound};
-use game::Game;
-use traits::MovementComponent;
+use util::{ Point, Bound };
+use game::{ Game, Windows };
 use rendering::RenderingComponent;
-use movement::{TcodUserMovementComponent, RandomMovementComponent, AgroMovementComponent};
+use movement::{ MovementComponent, UserMovementComponent, RandomMovementComponent, AgroMovementComponent};
 
 pub struct Actor <'a>{
     pub position: Point,
@@ -32,12 +31,12 @@ impl<'a> Actor<'a> {
 
     pub fn heroine(bound: Bound) -> Actor<'a> {
         let point = Game::get_character_location();
-        let mc: Box<TcodUserMovementComponent> = box MovementComponent::new(bound);
+        let mc: Box<UserMovementComponent> = box MovementComponent::new(bound);
         Actor::new(point.x, point.y, '@', mc)
     }
 
-    pub fn update(&mut self) {
-        self.position = self.movement_component.update(self.position);
+    pub fn update(&mut self, windows: &mut Windows) {
+        self.position = self.movement_component.update(self.position, windows);
     }
 
     pub fn render(&self, rendering_component: &mut Box<RenderingComponent>) {
