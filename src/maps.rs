@@ -97,7 +97,7 @@ impl<'a> Map<'a> {
                 for actor in y_iter.iter_mut() {
                     actor.update(windows);
                     if actor.is_pc {
-                        { self.move_info.borrow_mut().deref().char_location = actor.position };
+                        { self.move_info.borrow_mut().deref_mut().char_location = actor.position };
                     }
                     let point = actor.position;
                     let new_actor = actor.clone();
