@@ -4,21 +4,31 @@ extern crate dwemthys;
 use tcod::Console;
 use dwemthys::game::Game;
 use dwemthys::actor::Actor;
-use dwemthys::rendering::WindowComponent;
 use dwemthys::input::KeyCode;
 use dwemthys::input::Key::SpecialKey;
+use dwemthys::util::Point;
 
 fn main() {
     let mut game = Game::new();
+    let char_location = { game.move_info.borrow().deref().char_location };
+    game.maps.friends.push_actor(
+        Point::new(10, 10),
+        box Actor::dog(10, 10, game.windows.get_map_bounds(), game.move_info.clone())
+    );
+    game.maps.friends.push_actor(
+        Point::new(40, 25),
+        box Actor::cat(40, 25, game.windows.get_map_bounds(), game.move_info.clone())
+    );
+    game.maps.enemies.push_actor(
+        Point::new(20, 20),
+        box Actor::kobold(20, 20, game.windows.get_map_bounds(), game.move_info.clone())
+    );
+    game.maps.pcs.push_actor(
+        char_location,
+        box Actor::heroine(game.windows.get_map_bounds(), game.move_info.clone())
+    );
 
-    let mut ch = Actor::heroine(game.windows.map.get_bounds());
-    let mut npcs: Vec<Box<Actor>> = vec! [
-        box Actor::dog(10, 10, game.windows.map.get_bounds()),
-        box Actor::cat(40, 25, game.windows.map.get_bounds()),
-        box Actor::kobold(20, 20, game.windows.map.get_bounds())
-    ];
-
-    game.render(&mut npcs, &ch);
+    game.render();
 
     while !(Console::window_closed() || game.exit) {
         let keypress = game.wait_for_keypress();
@@ -28,7 +38,7 @@ fn main() {
             _ => {}
         }
 
-        game.update(&mut npcs, &mut ch);
-        game.render(&mut npcs, &ch);
+        game.update();
+        game.render();
     }
 }

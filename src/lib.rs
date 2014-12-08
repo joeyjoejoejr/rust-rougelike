@@ -43,8 +43,9 @@ macro_rules! window_component_init(
 
 pub mod util;
 pub mod game;
-pub mod traits;
 pub mod actor;
 pub mod rendering;
+pub mod window;
 pub mod movement;
 pub mod input;
+pub mod maps;

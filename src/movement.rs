@@ -1,24 +1,46 @@
 extern crate tcod;
+
 use std;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::rand::Rng;
+
 use util::{Bound, Point, XPointRelation, YPointRelation, PointRelation };
 use util::Contains::{DoesContain, DoesNotContain};
-use game::{ Game, Windows };
-use input::{ KeyCode };
+use game::Windows;
+use input::{ KeyCode, KeyboardInput };
 use input::Key::SpecialKey;
 
+pub struct MoveInfo {
+    pub last_keypress: Option<KeyboardInput>,
+    pub char_location: Point,
+    pub bounds: Bound
+}
+
+impl MoveInfo {
+    pub fn new(bound: Bound) -> MoveInfo {
+        MoveInfo {
+            last_keypress: None,
+            char_location: Point::new(40, 25),
+            bounds: bound
+        }
+    }
+}
+
 pub trait MovementComponent {
-    fn new(Bound) -> Self;
+    fn new(Bound, Rc<RefCell<MoveInfo>>) -> Self;
     fn update(&self, Point, &mut Windows) -> Point;
+    fn box_clone(&self) -> Box<MovementComponent + 'static>;
 }
 
 pub struct RandomMovementComponent {
-    window_bounds: Bound
+    window_bounds: Bound,
+    move_info: Rc<RefCell<MoveInfo>>
 }
 
 impl MovementComponent for RandomMovementComponent {
-    fn new(window_bounds: Bound) -> RandomMovementComponent {
-        RandomMovementComponent { window_bounds: window_bounds }
+    fn new(window_bounds: Bound, move_info: Rc<RefCell<MoveInfo>>) -> RandomMovementComponent {
+        RandomMovementComponent { window_bounds: window_bounds, move_info: move_info }
     }
 
     fn update(&self, point: Point, _: &mut Windows) -> Point {
@@ -38,20 +60,28 @@ impl MovementComponent for RandomMovementComponent {
 
         offset
     }
+
+    fn box_clone(&self) -> Box<MovementComponent + 'static> {
+        box RandomMovementComponent {
+            window_bounds: self.window_bounds,
+            move_info: self.move_info.clone()
+        }
+    }
 }
 
 pub struct UserMovementComponent {
-    window_bounds: Bound
+    window_bounds: Bound,
+    move_info: Rc<RefCell<MoveInfo>>
 }
 
 impl MovementComponent for UserMovementComponent {
-    fn new(window_bounds: Bound) -> UserMovementComponent {
-        UserMovementComponent { window_bounds: window_bounds }
+    fn new(window_bounds: Bound, move_info: Rc<RefCell<MoveInfo>>) -> UserMovementComponent {
+        UserMovementComponent { window_bounds: window_bounds, move_info: move_info }
     }
 
     fn update(&self, point: Point, windows: &mut Windows) -> Point {
         let mut offset = Point { x: point.x, y: point.y };
-        offset = match Game::get_last_keypress() {
+        offset = match self.move_info.borrow().deref().last_keypress {
             Some(keypress) => {
                 match keypress.key {
                     SpecialKey(KeyCode::Up) => {
@@ -80,19 +110,27 @@ impl MovementComponent for UserMovementComponent {
             }
         }
     }
+
+    fn box_clone(&self) -> Box<MovementComponent + 'static> {
+        box UserMovementComponent {
+            window_bounds: self.window_bounds,
+            move_info: self.move_info.clone()
+        }
+    }
 }
 
 pub struct AgroMovementComponent {
-    window_bounds: Bound
+    window_bounds: Bound,
+    move_info: Rc<RefCell<MoveInfo>>
 }
 
 impl MovementComponent for AgroMovementComponent {
-    fn new(window_bounds: Bound) -> AgroMovementComponent {
-        AgroMovementComponent { window_bounds: window_bounds }
+    fn new(window_bounds: Bound, move_info: Rc<RefCell<MoveInfo>>) -> AgroMovementComponent {
+        AgroMovementComponent { window_bounds: window_bounds, move_info: move_info}
     }
 
     fn update(&self, point: Point, _: &mut Windows) -> Point {
-        let char_point = Game::get_character_location();
+        let char_point = { self.move_info.borrow().deref().char_location };
         let mut offset = Point { x: 0, y: 0 };
 
         match point.compare_x(char_point) {
@@ -115,6 +153,13 @@ impl MovementComponent for AgroMovementComponent {
                     DoesNotContain => { point }
                 }
             }
+        }
+    }
+
+    fn box_clone(&self) -> Box<MovementComponent + 'static> {
+        box AgroMovementComponent {
+            window_bounds: self.window_bounds,
+            move_info: self.move_info.clone()
         }
     }
 }

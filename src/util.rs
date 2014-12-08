@@ -26,6 +26,10 @@ pub enum PointRelation {
 }
 
 impl Point {
+    pub fn new(x: i32, y: i32) -> Point {
+        Point { x: x, y: y }
+    }
+
     pub fn offset_x(&self, offset: i32) -> Point {
         Point { x: self.x + offset, y: self.y }
     }

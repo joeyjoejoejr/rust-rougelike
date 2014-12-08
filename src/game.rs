@@ -1,15 +1,19 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use util::{ Point, Bound };
-use rendering::{
+use rendering::RenderingComponent;
+use window::{
     WindowComponent,
-    RenderingComponent,
     TcodStatsWindowComponent,
     TcodInputWindowComponent,
     TcodMessagesWindowComponent,
     TcodMapWindowComponent
 };
-use actor::Actor;
 use input::{ KeyboardInput, KeyCode };
 use input::Key::{ SpecialKey, Printable };
+use maps::Maps;
+use movement::MoveInfo;
 
 static mut LAST_KEYPRESS: Option<KeyboardInput> = None;
 static mut CHAR_LOCATION: Point = Point { x: 40, y: 25 };
@@ -30,11 +34,15 @@ impl<'a> Windows<'a> {
             &mut self.map
         ]
     }
+
+    pub fn get_map_bounds(&self) -> Bound {
+        self.map.get_bounds()
+    }
 }
 
 pub trait GameState {
     fn new() -> Self;
-    fn update(&mut self, npcs: &mut Vec<Box<Actor>>, character: &mut Actor, windows: &mut Windows);
+    fn update(&mut self, maps: &mut Maps, windows: &mut Windows, Rc<RefCell<MoveInfo>>);
     fn should_update_state(&self) -> bool;
 
     fn enter(&self, &mut Windows) {}
@@ -43,8 +51,7 @@ pub trait GameState {
     fn render(
         &mut self,
         renderer: &mut Box<RenderingComponent>,
-        npcs: &Vec<Box<Actor>>,
-        character: &Actor,
+        maps: &mut Maps,
         windows: &mut Windows
     ) {
         renderer.before_render_new_frame();
@@ -54,11 +61,7 @@ pub trait GameState {
             renderer.attach_window(*window);
         }
 
-        for npc in npcs.iter() {
-            npc.render(renderer);
-        }
-
-        character.render(renderer);
+        maps.render(renderer);
         renderer.after_render_new_frame();
     }
 }
@@ -66,24 +69,26 @@ pub trait GameState {
 pub struct MovementGameState;
 
 impl GameState for MovementGameState {
-    fn new() -> MovementGameState {
-        MovementGameState
-    }
-
-    fn update(&mut self, npcs: &mut Vec<Box<Actor>>, character: &mut Actor, windows: &mut Windows) {
-        character.update(windows);
-        Game::set_character_location(character.position);
-        for npc in npcs.iter_mut() {
-            npc.update(windows);
-        }
-    }
+    fn new() -> MovementGameState { MovementGameState }
 
     fn should_update_state(&self) -> bool { true }
+
+    fn update(&mut self, maps: &mut Maps, windows: &mut Windows, move_info: Rc<RefCell<MoveInfo>>) {
+        match move_info.borrow().deref().last_keypress {
+            Some(ks) => {
+                match ks.key {
+                    SpecialKey(KeyCode::Shift) => {},
+                    _ => { maps.update(windows); }
+                }
+            },
+            _ => {}
+        }
+    }
 }
 
 pub struct AttackInputGameState {
     should_update_state: bool,
-    weapon: String
+    weapon: String,
 }
 
 impl GameState for AttackInputGameState {
@@ -106,24 +111,29 @@ impl GameState for AttackInputGameState {
         windows.input.buffer_message(msg.as_slice());
     }
 
-    fn update(&mut self, _: &mut Vec<Box<Actor>>, _: &mut Actor, windows: &mut Windows) {
-        match Game::get_last_keypress() {
+    fn update(&mut self, maps: &mut Maps, windows: &mut Windows, move_info: Rc<RefCell<MoveInfo>>) {
+        match move_info.borrow().deref().last_keypress {
             Some(ks) => {
                 let mut msg = "You attack ".to_string();
+                let mut point = { move_info.borrow().deref().char_location };
                 match ks.key {
                     SpecialKey(KeyCode::Up) => {
+                        point = point.offset_y(-1);
                         msg.push_str("up");
                         self.should_update_state = true;
                     },
                     SpecialKey(KeyCode::Down) => {
+                        point = point.offset_y(1);
                         msg.push_str("down");
                         self.should_update_state = true;
                     },
                     SpecialKey(KeyCode::Left) => {
+                        point = point.offset_x(-1);
                         msg.push_str("left");
                         self.should_update_state = true;
                     },
                     SpecialKey(KeyCode::Right) => {
+                        point = point.offset_x(1);
                         msg.push_str("right");
                         self.should_update_state = true;
                     },
@@ -131,10 +141,17 @@ impl GameState for AttackInputGameState {
                 }
 
                 if self.should_update_state {
-                    msg.push_str(" with your ");
-                    msg.push_str(self.weapon.as_slice());
-                    msg.push_str("!");
-                    windows.messages.buffer_message(msg.as_slice());
+                    match maps.enemy_at(point) {
+                        Some(_) => {
+                            msg.push_str(" with your ");
+                            msg.push_str(self.weapon.as_slice());
+                            msg.push_str("!");
+                            windows.messages.buffer_message(msg.as_slice());
+                        },
+                        None => {
+                            windows.messages.buffer_message("No enemy in that direction!");
+                        }
+                    }
                 }
             },
             _ => {}
@@ -147,7 +164,9 @@ pub struct Game<'a> {
     pub exit: bool,
     pub rendering_component: Box<RenderingComponent + 'a>,
     pub game_state: Box<GameState + 'a>,
-    pub windows: Windows<'a>
+    pub windows: Windows<'a>,
+    pub maps: Maps<'a>,
+    pub move_info: Rc<RefCell<MoveInfo>>
 }
 
 impl<'a> Game<'a> {
@@ -171,33 +190,37 @@ impl<'a> Game<'a> {
             stats: sw
         };
 
+        let move_info = Rc::new(RefCell::new(MoveInfo::new(map_bounds)));
         let gs: Box<MovementGameState> = box GameState::new();
+        let maps = Maps::new(move_info.clone());
 
         Game {
             exit: false,
             window_bounds: total_bounds,
             rendering_component: rc,
             windows: windows,
-            game_state: gs
+            game_state: gs,
+            maps: maps,
+            move_info: move_info
         }
     }
 
-    pub fn update(&'a mut self, npcs: &mut Vec<Box<Actor>>, c: &mut Actor) {
+    pub fn update(&'a mut self) {
         if self.game_state.should_update_state() {
             self.game_state.exit();
             self.update_state();
             self.game_state.enter(&mut self.windows);
         }
 
-        self.game_state.update(npcs, c, &mut self.windows);
+        self.game_state.update(&mut self.maps, &mut self.windows, self.move_info.clone());
     }
 
-    pub fn render(&mut self, npcs: &mut Vec<Box<Actor>>, c: &Actor) {
-        self.game_state.render(&mut self.rendering_component, npcs, c, &mut self.windows);
+    pub fn render(&mut self) {
+        self.game_state.render(&mut self.rendering_component, &mut self.maps, &mut self.windows);
     }
 
     fn update_state(&mut self) {
-        match Game::get_last_keypress() {
+        match self.move_info.borrow().deref().last_keypress {
             Some(ks) => {
                 match ks.key {
                     Printable('/') => {
@@ -232,7 +255,7 @@ impl<'a> Game<'a> {
 
     pub fn wait_for_keypress(&mut self) -> KeyboardInput {
         let key_state = self.rendering_component.wait_for_keypress();
-        Game::set_last_keypress(key_state);
+        { self.move_info.borrow_mut().deref_mut().last_keypress = Some(key_state) };
         key_state
     }
 
