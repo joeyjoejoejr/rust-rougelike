@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use util::{ Point, Bound };
+use util::Bound;
 use rendering::RenderingComponent;
 use window::{
     WindowComponent,
@@ -14,9 +14,6 @@ use input::{ KeyboardInput, KeyCode };
 use input::Key::{ SpecialKey, Printable };
 use maps::Maps;
 use movement::MoveInfo;
-
-static mut LAST_KEYPRESS: Option<KeyboardInput> = None;
-static mut CHAR_LOCATION: Point = Point { x: 40, y: 25 };
 
 pub struct Windows<'a> {
     pub stats: Box<WindowComponent + 'a>,
@@ -74,7 +71,8 @@ impl GameState for MovementGameState {
     fn should_update_state(&self) -> bool { true }
 
     fn update(&mut self, maps: &mut Maps, windows: &mut Windows, move_info: Rc<RefCell<MoveInfo>>) {
-        match move_info.borrow().deref().last_keypress {
+        let last_keypress = { move_info.borrow().deref().last_keypress };
+        match last_keypress {
             Some(ks) => {
                 match ks.key {
                     SpecialKey(KeyCode::Shift) => {},
@@ -112,7 +110,8 @@ impl GameState for AttackInputGameState {
     }
 
     fn update(&mut self, maps: &mut Maps, windows: &mut Windows, move_info: Rc<RefCell<MoveInfo>>) {
-        match move_info.borrow().deref().last_keypress {
+        let last_keypress = { move_info.borrow().deref().last_keypress };
+        match last_keypress {
             Some(ks) => {
                 let mut msg = "You attack ".to_string();
                 let mut point = { move_info.borrow().deref().char_location };
@@ -220,7 +219,10 @@ impl<'a> Game<'a> {
     }
 
     fn update_state(&mut self) {
-        match self.move_info.borrow().deref().last_keypress {
+        let last_keypress = {
+            self.move_info.borrow().deref().last_keypress
+        };
+        match last_keypress {
             Some(ks) => {
                 match ks.key {
                     Printable('/') => {
@@ -255,23 +257,10 @@ impl<'a> Game<'a> {
 
     pub fn wait_for_keypress(&mut self) -> KeyboardInput {
         let key_state = self.rendering_component.wait_for_keypress();
-        { self.move_info.borrow_mut().deref_mut().last_keypress = Some(key_state) };
+        {
+            let mut move_info = self.move_info.borrow_mut();
+            move_info.deref_mut().last_keypress = Some(key_state)
+        };
         key_state
-    }
-
-    pub fn get_last_keypress() -> Option<KeyboardInput> {
-        unsafe { LAST_KEYPRESS }
-    }
-
-    pub fn set_last_keypress(ks: KeyboardInput) {
-        unsafe { LAST_KEYPRESS = Some(ks);}
-    }
-
-    pub fn get_character_location() -> Point {
-        unsafe { CHAR_LOCATION }
-    }
-
-    pub fn set_character_location(point: Point) {
-        unsafe { CHAR_LOCATION = point; }
     }
 }

@@ -1,5 +1,5 @@
 extern crate tcod;
-use self::tcod::{Console, KeyState, BackgroundFlag };
+use self::tcod::{ Console, KeyState, BackgroundFlag };
 
 use util::{Point, Bound};
 use input::{ InputComponent, TcodInputComponent, KeyboardInput};

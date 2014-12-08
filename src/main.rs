@@ -13,19 +13,19 @@ fn main() {
     let char_location = { game.move_info.borrow().deref().char_location };
     game.maps.friends.push_actor(
         Point::new(10, 10),
-        box Actor::dog(10, 10, game.windows.get_map_bounds(), game.move_info.clone())
+        box Actor::dog(10, 10, game.move_info.clone())
     );
     game.maps.friends.push_actor(
         Point::new(40, 25),
-        box Actor::cat(40, 25, game.windows.get_map_bounds(), game.move_info.clone())
+        box Actor::cat(40, 25, game.move_info.clone())
     );
     game.maps.enemies.push_actor(
         Point::new(20, 20),
-        box Actor::kobold(20, 20, game.windows.get_map_bounds(), game.move_info.clone())
+        box Actor::kobold(20, 20, game.move_info.clone())
     );
     game.maps.pcs.push_actor(
         char_location,
-        box Actor::heroine(game.windows.get_map_bounds(), game.move_info.clone())
+        box Actor::heroine(game.move_info.clone())
     );
 
     game.render();

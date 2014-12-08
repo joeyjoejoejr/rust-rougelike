@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use util::{ Point, Bound };
+use util::Point;
 use game::Windows;
 use rendering::RenderingComponent;
 use movement::{
@@ -24,24 +24,24 @@ impl Actor {
         Actor { position: Point { x: x, y: y }, display_char: dc, movement_component: movement_component , is_pc: is_pc }
     }
 
-    pub fn dog(x: i32, y: i32, bound: Bound, move_info: Rc<RefCell<MoveInfo>>) -> Actor {
-        let mc: Box<RandomMovementComponent> = box MovementComponent::new(bound, move_info.clone());
+    pub fn dog(x: i32, y: i32, move_info: Rc<RefCell<MoveInfo>>) -> Actor {
+        let mc: Box<RandomMovementComponent> = box MovementComponent::new(move_info.clone());
         Actor::new(x, y, 'd', mc, false)
     }
 
-    pub fn cat(x: i32, y: i32, bound: Bound, move_info: Rc<RefCell<MoveInfo>>) -> Actor {
-        let mc: Box<RandomMovementComponent> = box MovementComponent::new(bound, move_info.clone());
+    pub fn cat(x: i32, y: i32, move_info: Rc<RefCell<MoveInfo>>) -> Actor {
+        let mc: Box<RandomMovementComponent> = box MovementComponent::new(move_info.clone());
         Actor::new(x, y, 'c', mc, false)
     }
 
-    pub fn kobold(x: i32, y: i32, bound: Bound, move_info: Rc<RefCell<MoveInfo>>) -> Actor {
-        let mc: Box<AgroMovementComponent> = box MovementComponent::new(bound, move_info.clone());
+    pub fn kobold(x: i32, y: i32, move_info: Rc<RefCell<MoveInfo>>) -> Actor {
+        let mc: Box<AgroMovementComponent> = box MovementComponent::new(move_info.clone());
         Actor::new(x, y, 'k', mc, false)
     }
 
-    pub fn heroine(bound: Bound, move_info: Rc<RefCell<MoveInfo>>) -> Actor {
+    pub fn heroine(move_info: Rc<RefCell<MoveInfo>>) -> Actor {
         let point = { move_info.borrow().deref().char_location };
-        let mc: Box<UserMovementComponent> = box MovementComponent::new(bound, move_info.clone());
+        let mc: Box<UserMovementComponent> = box MovementComponent::new(move_info.clone());
         Actor::new(point.x, point.y, '@', mc, true)
     }
 

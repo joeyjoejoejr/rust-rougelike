@@ -28,7 +28,7 @@ impl MoveInfo {
 }
 
 pub trait MovementComponent {
-    fn new(Bound, Rc<RefCell<MoveInfo>>) -> Self;
+    fn new(Rc<RefCell<MoveInfo>>) -> Self;
     fn update(&self, Point, &mut Windows) -> Point;
     fn box_clone(&self) -> Box<MovementComponent + 'static>;
 }
@@ -39,7 +39,8 @@ pub struct RandomMovementComponent {
 }
 
 impl MovementComponent for RandomMovementComponent {
-    fn new(window_bounds: Bound, move_info: Rc<RefCell<MoveInfo>>) -> RandomMovementComponent {
+    fn new(move_info: Rc<RefCell<MoveInfo>>) -> RandomMovementComponent {
+        let window_bounds = { move_info.borrow().deref().bounds };
         RandomMovementComponent { window_bounds: window_bounds, move_info: move_info }
     }
 
@@ -75,13 +76,15 @@ pub struct UserMovementComponent {
 }
 
 impl MovementComponent for UserMovementComponent {
-    fn new(window_bounds: Bound, move_info: Rc<RefCell<MoveInfo>>) -> UserMovementComponent {
+    fn new(move_info: Rc<RefCell<MoveInfo>>) -> UserMovementComponent {
+        let window_bounds = { move_info.borrow().deref().bounds };
         UserMovementComponent { window_bounds: window_bounds, move_info: move_info }
     }
 
     fn update(&self, point: Point, windows: &mut Windows) -> Point {
         let mut offset = Point { x: point.x, y: point.y };
-        offset = match self.move_info.borrow().deref().last_keypress {
+        let last_keypress = { self.move_info.borrow().deref().last_keypress };
+        offset = match last_keypress {
             Some(keypress) => {
                 match keypress.key {
                     SpecialKey(KeyCode::Up) => {
@@ -125,7 +128,8 @@ pub struct AgroMovementComponent {
 }
 
 impl MovementComponent for AgroMovementComponent {
-    fn new(window_bounds: Bound, move_info: Rc<RefCell<MoveInfo>>) -> AgroMovementComponent {
+    fn new(move_info: Rc<RefCell<MoveInfo>>) -> AgroMovementComponent {
+        let window_bounds = { move_info.borrow().deref().bounds };
         AgroMovementComponent { window_bounds: window_bounds, move_info: move_info}
     }
 
